@@ -1,0 +1,20 @@
+{% extends 'postapp/basic2.html' %}
+{% block title %} delete {% endblock title %}
+{% block content %}
+
+<section class="updt_section">
+    <div class="main_updtdiv">
+        <p>Are you sure you want to delete?</p>
+        <form method="Post" class="updt_form">
+            {%  csrf_token  %}
+            <div class="updt_subdiv">
+                <input type="submit" value="delete">
+                <a href="{% url 'postapp:post_page' %}">Cancel</a>
+            </div>
+            
+        </form>
+        
+    </div>
+</section>
+
+{% endblock content %}

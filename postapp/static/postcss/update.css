@@ -1,0 +1,13 @@
+.updt_section{
+    display: flex;
+    justify-content: center;
+    padding-top: 8rem;
+}
+.main_updtdiv{
+    display: flex;
+    flex-direction: column;
+    border: solid rgb(0, 0, 255) 1px;
+    border-radius: 4px;
+    padding: 1rem 2rem;
+
+}
