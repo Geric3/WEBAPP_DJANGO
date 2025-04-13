@@ -144,7 +144,7 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const ticketId = form.dataset.ticketId;
-            const button = e.submitter; // Récupère le bouton cliqué
+            const button = e.submitter;
             const action = button.dataset.action;
     
             try {
@@ -154,33 +154,34 @@
                         'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value,
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
-                    body: `action=${action}`
+                    body: `action=${encodeURIComponent(action)}` // Encoder l'action
                 });
                 
-                if (!response.ok) throw new Error('Erreur HTTP');
+                if (!response.ok) throw await response.json();
                 
                 const data = await response.json();
                 
-                // Mise à jour des compteurs
-                const isLike = button.classList.contains('like-btn');
-                const countElement = form.querySelector('.count');
-                countElement.textContent = isLike ? data.likes_count : data.dislikes_count;
-                
-                // Mise à jour des états
-                document.querySelectorAll(`[data-ticket-id="${ticketId}"] button`).forEach(btn => {
-                    if (btn !== button) {
-                        btn.classList.remove('active');
-                        btn.dataset.action = btn.classList.contains('like-btn') ? 'like' : 'dislike';
+                // Mettre à jour TOUS les compteurs du ticket
+                document.querySelectorAll(`[data-ticket-id="${ticketId}"] .count`).forEach(span => {
+                    if (span.closest('.like-form')) {
+                        span.textContent = data.likes_count;
+                    } else {
+                        span.textContent = data.dislikes_count;
                     }
                 });
-                button.classList.toggle('active');
-                button.dataset.action = button.dataset.action.startsWith('un') ? 
-                    action.replace('un', '') : 
-                    'un' + action;
+    
+                // Mise à jour des boutons
+                document.querySelectorAll(`[data-ticket-id="${ticketId}"] button`).forEach(btn => {
+                    const isLikeBtn = btn.classList.contains('like-btn');
+                    btn.classList.toggle('active', 
+                        (isLikeBtn && data.likes_count > 0) || 
+                        (!isLikeBtn && data.dislikes_count > 0)
+                    );
+                });
     
             } catch (error) {
                 console.error('Error:', error);
-                alert('Une erreur est survenue');
+                alert(error.message || 'Une erreur est survenue');
             }
         });
     });

@@ -8,6 +8,7 @@ from itertools import chain
 from django.utils import timezone
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+from django.db import transaction
 """ from django.db.models import Prefetch
 from django.db.models import Count """
 
@@ -265,12 +266,13 @@ def Dashboard(request):
     tickuser=tickuser.annotate(content_type= Value('TICKET', CharField()))
 
     
-    tickets = Ticket.objects.prefetch_related(
+    tickets = Ticket.objects.annotate(
+        likes_count=Count('likes'),
+        dislikes_count=Count('dislikes'),
+        content_type=Value('TICKET', output_field=CharField())
+    ).prefetch_related(
         Prefetch('likes', queryset=User.objects.filter(pk=request.user.id)),
         Prefetch('dislikes', queryset=User.objects.filter(pk=request.user.id))
-    ).annotate(
-        likes_count=Count('likes'),
-        dislikes_count=Count('dislikes')
     )
 
     posts=sorted(chain(rev_from_followers, rev_from_tick, tick_from_followers, tickuser), key=lambda post:
@@ -419,26 +421,33 @@ def view_comment(request, id):
     return render(request, "postapp/comment.html", {'sort_comment':sort_comment })
 
 
+
 @login_required
 @require_POST
+@transaction.atomic
 def react_to_ticket(request, ticket_id):
-    ticket = get_object_or_404(Ticket, id=ticket_id)
-    action = request.POST.get('action')
-    
-    if action == 'like':
-        if request.user in ticket.dislikes.all():
+    try:
+        ticket = Ticket.objects.get(id=ticket_id)
+        action = request.POST.get('action')
+        
+        if action not in ['like', 'dislike', 'unlike', 'undislike']:
+            raise ValueError("Action invalide")
+
+        if action == 'like':
             ticket.dislikes.remove(request.user)
-        ticket.likes.add(request.user)
-    elif action == 'dislike':
-        if request.user in ticket.likes.all():
+            ticket.likes.add(request.user)
+        elif action == 'dislike':
             ticket.likes.remove(request.user)
-        ticket.dislikes.add(request.user)
-    elif action == 'unlike':
-        ticket.likes.remove(request.user)
-    elif action == 'undislike':
-        ticket.dislikes.remove(request.user)
-    
-    return JsonResponse({
-        'likes_count': ticket.likes.count(),
-        'dislikes_count': ticket.dislikes.count()
-    })
+            ticket.dislikes.add(request.user)
+        elif action == 'unlike':
+            ticket.likes.remove(request.user)
+        elif action == 'undislike':
+            ticket.dislikes.remove(request.user)
+
+        return JsonResponse({
+            'likes_count': ticket.likes.count(),
+            'dislikes_count': ticket.dislikes.count()
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
